@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ByteQuiz — Programming MCQ System</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0f0d;
+  --bg2: #111411;
+  --surface: #161a16;
+  --surface2: #1d231d;
+  --border: #2a342a;
+  --green: #39ff85;
+  --green-dim: #1a7a3d;
+  --green-glow: rgba(57,255,133,0.15);
+  --amber: #ffb347;
+  --red: #ff4d6d;
+  --blue: #4dafff;
+  --text: #c8e6c9;
+  --text-muted: #5a7a5a;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Outfit', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+/* Grid background */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(57,255,133,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57,255,133,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
+}
+
+/* ---- TOPBAR ---- */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: rgba(13,15,13,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+  z-index: 100;
+  font-family: var(--mono);
+}
+
+.topbar-logo {
+  font-size: 1rem; font-weight: 700;
+  color: var(--green); letter-spacing: -0.02em;
+}
+.topbar-logo span { color: var(--text-muted); }
+
+.topbar-nav { display: flex; gap: 2px; }
+.nav-btn {
+  padding: 6px 14px; background: transparent; border: none;
+  font-family: var(--mono); font-size: 0.78rem; color: var(--text-muted);
+  cursor: pointer; border-radius: 6px; transition: all 0.15s;
+  border: 1px solid transparent;
+}
+.nav-btn:hover { color: var(--green); border-color: var(--border); }
+.nav-btn.active { color: var(--green); background: var(--surface2); border-color: var(--green-dim); }
+
+.topbar-status {
+  font-size: 0.72rem; color: var(--text-muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ---- PAGES ---- */
+.page { display: none; min-height: 100vh; padding: 72px 24px 48px; max-width: 860px; margin: 0 auto; position: relative; z-index: 1; }
+.page.active { display: block; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* ---- TERMINAL PROMPT ---- */
+.prompt { font-family: var(--mono); color: var(--text-muted); font-size: 0.78rem; margin-bottom: 4px; }
+.prompt::before { content: '> '; color: var(--green); }
+
+/* ---- HOME ---- */
+.home-header { padding: 48px 0 40px; }
+.home-tag {
+  font-family: var(--mono); font-size: 0.72rem; color: var(--green);
+  background: var(--green-glow); border: 1px solid var(--green-dim);
+  padding: 5px 14px; border-radius: 4px; display: inline-block; margin-bottom: 20px;
+}
+.home-title {
+  font-family: var(--mono); font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 800; line-height: 1.05; margin-bottom: 16px;
+  color: var(--text);
+}
+.home-title .highlight { color: var(--green); }
+.home-title .cursor {
+  display: inline-block; width: 3px; height: 1em;
+  background: var(--green); margin-left: 4px; vertical-align: middle;
+  animation: cursorBlink 1s step-end infinite;
+}
+@keyframes cursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.home-sub { font-size: 1rem; color: var(--text-muted); max-width: 480px; line-height: 1.6; margin-bottom: 32px; }
+
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 22px; border-radius: 6px; font-size: 0.88rem;
+  font-weight: 600; cursor: pointer; border: none; transition: all 0.18s;
+  font-family: var(--mono); letter-spacing: 0.02em;
+}
+.btn-green {
+  background: var(--green); color: #0d0f0d;
+  box-shadow: 0 0 20px rgba(57,255,133,0.25);
+}
+.btn-green:hover { box-shadow: 0 0 32px rgba(57,255,133,0.5); transform: translateY(-1px); }
+.btn-outline {
+  background: transparent; color: var(--green);
+  border: 1px solid var(--green-dim);
+}
+.btn-outline:hover { background: var(--green-glow); border-color: var(--green); }
+.btn-muted {
+  background: var(--surface2); color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.btn-muted:hover { color: var(--text); border-color: var(--text-muted); }
+.btn-sm { padding: 7px 14px; font-size: 0.78rem; }
+.btn-danger { background: rgba(255,77,109,0.15); color: var(--red); border: 1px solid rgba(255,77,109,0.3); }
+.btn-danger:hover { background: rgba(255,77,109,0.25); }
+
+/* Stats */
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 40px; }
+.stat-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px;
+  font-family: var(--mono);
+}
+.stat-val { font-size: 2rem; font-weight: 800; color: var(--green); }
+.stat-key { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+
+/* ---- QUIZ CARDS ---- */
+.section-head { display: flex; align-items: center; justify-content: space-between; padding: 32px 0 20px; }
+.section-head h2 { font-family: var(--mono); font-size: 1rem; color: var(--green); }
+.section-head h2::before { content: '# '; color: var(--text-muted); }
+
+.quiz-grid { display: grid; gap: 12px; }
+.quiz-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 22px; cursor: default; transition: all 0.18s; position: relative; overflow: hidden;
+}
+.quiz-card:hover { border-color: var(--green-dim); box-shadow: 0 0 24px rgba(57,255,133,0.05); }
+.quiz-card::after {
+  content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+  background: var(--green); opacity: 0; transition: opacity 0.2s;
+}
+.quiz-card:hover::after { opacity: 1; }
+
+.qc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.qc-name { font-family: var(--mono); font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.qc-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+.qc-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.tag {
+  font-family: var(--mono); font-size: 0.7rem; padding: 3px 10px; border-radius: 4px;
+  border: 1px solid; display: inline-flex; align-items: center; gap: 4px;
+}
+.tag-green { color: var(--green); border-color: var(--green-dim); background: var(--green-glow); }
+.tag-amber { color: var(--amber); border-color: rgba(255,179,71,0.3); background: rgba(255,179,71,0.08); }
+.tag-red { color: var(--red); border-color: rgba(255,77,109,0.3); background: rgba(255,77,109,0.08); }
+.tag-blue { color: var(--blue); border-color: rgba(77,175,255,0.3); background: rgba(77,175,255,0.08); }
+
+.empty-state { text-align: center; padding: 56px 24px; color: var(--text-muted); font-family: var(--mono); font-size: 0.85rem; }
+
+/* ---- QUIZ TAKING ---- */
+.quiz-hdr {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 28px 0 16px; flex-wrap: wrap;
+}
+.quiz-hdr-title { font-family: var(--mono); font-size: 0.85rem; color: var(--text-muted); }
+.quiz-hdr-title span { color: var(--green); }
+
+.timer {
+  font-family: var(--mono); font-size: 1rem; font-weight: 700;
+  padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); min-width: 100px; text-align: center;
+  transition: all 0.3s;
+}
+.timer.warn { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 12px rgba(255,179,71,0.2); }
+.timer.danger { border-color: var(--red); color: var(--red); box-shadow: 0 0 12px rgba(255,77,109,0.2); animation: shake 0.5s infinite; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-2px)} 75%{transform:translateX(2px)} }
+
+.progress-track { height: 2px; background: var(--surface2); border-radius: 2px; margin-bottom: 28px; }
+.progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.4s ease; box-shadow: 0 0 8px var(--green); }
+
+.question-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 28px 28px 24px;
+  margin-bottom: 16px;
+}
+.q-meta { font-family: var(--mono); font-size: 0.72rem; color: var(--text-muted); margin-bottom: 14px; display: flex; gap: 16px; }
+.q-meta span { color: var(--green); }
+
+/* code block styling for questions */
+.q-text {
+  font-size: 1rem; line-height: 1.6; color: var(--text); margin-bottom: 24px; font-weight: 500;
+}
+.code-block {
+  background: #0a0c0a; border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px 16px; font-family: var(--mono); font-size: 0.83rem;
+  color: #8bc34a; margin: 12px 0; overflow-x: auto; line-height: 1.6;
+}
+.code-block .kw { color: #c792ea; }
+.code-block .str { color: #c3e88d; }
+.code-block .num { color: #f78c6c; }
+.code-block .cm { color: #546e7a; }
+.code-block .fn { color: #82aaff; }
+
+.options-list { display: grid; gap: 8px; }
+.opt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface2);
+  cursor: pointer; transition: all 0.15s; font-size: 0.9rem;
+}
+.opt:hover { border-color: var(--green-dim); background: rgba(57,255,133,0.04); }
+.opt.selected { border-color: var(--green); background: var(--green-glow); color: var(--green); }
+.opt.correct { border-color: var(--green); background: rgba(57,255,133,0.12); }
+.opt.wrong { border-color: var(--red); background: rgba(255,77,109,0.1); }
+.opt-key {
+  font-family: var(--mono); font-size: 0.72rem; font-weight: 700;
+  min-width: 26px; height: 26px; border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  background: var(--bg); border: 1px solid var(--border); flex-shrink: 0;
+}
+.opt.selected .opt-key { background: var(--green); border-color: var(--green); color: #0d0f0d; }
+.opt.correct .opt-key { background: var(--green); border-color: var(--green); color: #0d0f0d; }
+.opt.wrong .opt-key { background: var(--red); border-color: var(--red); color: #fff; }
+
+.quiz-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.q-dots { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; }
+.q-dot {
+  width: 8px; height: 8px; border-radius: 2px; background: var(--border);
+  cursor: pointer; transition: all 0.15s;
+}
+.q-dot.answered { background: var(--green-dim); }
+.q-dot.current { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+/* ---- RESULTS ---- */
+.results-top { padding: 40px 0 32px; text-align: center; }
+.score-display {
+  width: 160px; height: 160px; border-radius: 50%; margin: 0 auto 24px;
+  border: 3px solid var(--green-dim); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; position: relative;
+  background: radial-gradient(circle at center, var(--green-glow), transparent 70%);
+  box-shadow: 0 0 40px rgba(57,255,133,0.1);
+}
+.score-pct { font-family: var(--mono); font-size: 2.4rem; font-weight: 800; color: var(--green); }
+.score-label { font-family: var(--mono); font-size: 0.7rem; color: var(--text-muted); }
+.grade-text { font-family: var(--mono); font-size: 1.4rem; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.grade-sub { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 28px; }
+
+.res-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 28px; }
+.res-stat {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center;
+  font-family: var(--mono);
+}
+.res-stat-val { font-size: 1.5rem; font-weight: 800; color: var(--green); }
+.res-stat-key { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; }
+
+.review-grid { display: grid; gap: 10px; }
+.rev-item {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 16px 18px; display: flex; gap: 12px; align-items: flex-start;
+}
+.rev-icon { font-family: var(--mono); font-size: 0.8rem; font-weight: 700; min-width: 28px; padding-top: 2px; }
+.rev-icon.c { color: var(--green); }
+.rev-icon.w { color: var(--red); }
+.rev-icon.s { color: var(--amber); }
+.rev-q { font-size: 0.88rem; font-weight: 600; margin-bottom: 5px; }
+.rev-ans { font-family: var(--mono); font-size: 0.78rem; }
+.ans-correct { color: var(--green); }
+.ans-wrong { color: var(--red); }
+
+/* ---- LEADERBOARD ---- */
+.lb-wrap { display: grid; gap: 8px; }
+.lb-row {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 14px 20px; display: flex; align-items: center; gap: 16px; transition: all 0.15s;
+}
+.lb-row:hover { border-color: var(--green-dim); }
+.lb-row.gold { border-color: rgba(255,215,0,0.3); }
+.lb-row.silver { border-color: rgba(192,192,192,0.3); }
+.lb-row.bronze { border-color: rgba(205,127,50,0.3); }
+.lb-rank { font-family: var(--mono); font-size: 1rem; font-weight: 800; min-width: 36px; }
+.lb-rank.r1 { color: #ffd700; }
+.lb-rank.r2 { color: #c0c0c0; }
+.lb-rank.r3 { color: #cd7f32; }
+.lb-avatar {
+  width: 38px; height: 38px; border-radius: 6px; background: var(--surface2);
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 0.85rem; font-weight: 700; color: var(--green); flex-shrink: 0;
+}
+.lb-info { flex: 1; }
+.lb-name { font-weight: 600; font-size: 0.92rem; margin-bottom: 2px; }
+.lb-quiz { font-family: var(--mono); font-size: 0.72rem; color: var(--text-muted); }
+.lb-right { text-align: right; }
+.lb-score { font-family: var(--mono); font-size: 1rem; font-weight: 800; color: var(--green); }
+.lb-time { font-family: var(--mono); font-size: 0.72rem; color: var(--text-muted); }
+
+.lb-filter { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.filt-btn {
+  font-family: var(--mono); font-size: 0.75rem; padding: 5px 12px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+}
+.filt-btn.active { border-color: var(--green-dim); color: var(--green); background: var(--green-glow); }
+
+/* ---- ADMIN ---- */
+.admin-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.a-tab {
+  font-family: var(--mono); font-size: 0.78rem; padding: 10px 16px; border: none; background: transparent;
+  color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+.a-tab.active { color: var(--green); border-bottom-color: var(--green); }
+.a-tab:hover { color: var(--text); }
+
+.a-panel { display: none; }
+.a-panel.active { display: block; }
+
+.form-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 16px; }
+.form-box h3 { font-family: var(--mono); font-size: 0.85rem; color: var(--green); margin-bottom: 18px; }
+.form-box h3::before { content: '// '; color: var(--text-muted); }
+
+.fl { display: block; font-family: var(--mono); font-size: 0.73rem; color: var(--text-muted); margin-bottom: 6px; }
+.fi, .fs {
+  width: 100%; padding: 10px 13px; border-radius: 6px;
+  background: var(--bg2); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--mono); font-size: 0.85rem; outline: none; transition: border-color 0.15s;
+  margin-bottom: 14px;
+}
+.fi:focus, .fs:focus { border-color: var(--green-dim); }
+.fs option { background: var(--surface); }
+.fg { margin-bottom: 4px; }
+.frow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.opt-builder { display: grid; gap: 7px; margin-bottom: 14px; }
+.opt-row { display: flex; gap: 8px; align-items: center; }
+.opt-row input[type="radio"] { accent-color: var(--green); width: 15px; height: 15px; flex-shrink: 0; }
+.opt-row .fi { margin-bottom: 0; flex: 1; }
+.opt-row-label { font-family: var(--mono); font-size: 0.72rem; color: var(--green); min-width: 18px; }
+
+.q-items { display: grid; gap: 8px; margin-top: 16px; }
+.q-item {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+}
+.q-item-n { font-family: var(--mono); font-size: 0.72rem; color: var(--green); min-width: 22px; }
+.q-item-text { flex: 1; font-size: 0.85rem; }
+.q-item-type { font-family: var(--mono); font-size: 0.7rem; color: var(--text-muted); }
+
+/* ---- MODAL ---- */
+.overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(10px); z-index: 200; align-items: center; justify-content: center; padding: 20px;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 32px; max-width: 460px; width: 100%; animation: slideUp 0.2s ease;
+  box-shadow: 0 0 60px rgba(57,255,133,0.08);
+}
+@keyframes slideUp { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
+.modal-title { font-family: var(--mono); font-size: 1rem; font-weight: 800; color: var(--green); margin-bottom: 4px; }
+.modal-sub { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+.modal-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/* ---- TOAST ---- */
+.toasts { position: fixed; bottom: 20px; right: 20px; z-index: 500; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  font-family: var(--mono); font-size: 0.78rem; padding: 11px 18px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--border); min-width: 220px;
+  animation: slideIn 0.25s ease; display: flex; align-items: center; gap: 8px;
+}
+@keyframes slideIn { from{transform:translateX(30px);opacity:0} to{transform:translateX(0);opacity:1} }
+.toast.ok { border-left: 3px solid var(--green); }
+.toast.err { border-left: 3px solid var(--red); }
+.toast.info { border-left: 3px solid var(--blue); }
+
+@media (max-width:600px) {
+  .frow { grid-template-columns: 1fr; }
+  .stats-grid, .res-stats { grid-template-columns: 1fr 1fr; }
+  .topbar-status { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">byte<span>quiz</span>.js</div>
+  <div class="topbar-nav">
+    <button class="nav-btn active" onclick="go('home')">~home</button>
+    <button class="nav-btn" onclick="go('quizzes')">quizzes/</button>
+    <button class="nav-btn" onclick="go('lb')">rankings/</button>
+    <button class="nav-btn" onclick="go('admin')">admin/</button>
+  </div>
+  <div class="topbar-status"><div class="status-dot"></div>system online</div>
+</div>
+
+<!-- HOME -->
+<div class="page active" id="pg-home">
+  <div class="home-header">
+    <div class="home-tag">// programming · mcq · quiz system</div>
+    <div class="home-title">
+      Test Your<br><span class="highlight">Code Knowledge</span><span class="cursor"></span>
+    </div>
+    <div class="home-sub">Challenge yourself with curated programming MCQs. Timer, score tracking, and rankings — all in one place.</div>
+    <div class="btn-row">
+      <button class="btn btn-green" onclick="go('quizzes')">▶ run quiz</button>
+      <button class="btn btn-outline" onclick="go('lb')">[ rankings ]</button>
+      <button class="btn btn-muted" onclick="go('admin')">admin panel</button>
+    </div>
+  </div>
+  <div class="stats-grid" id="home-stats"></div>
+</div>
+
+<!-- QUIZ LIST -->
+<div class="page" id="pg-quizzes">
+  <div class="section-head"><h2>available_quizzes</h2><button class="btn btn-outline btn-sm" onclick="go('admin')">+ new</button></div>
+  <div class="quiz-grid" id="quiz-grid"></div>
+</div>
+
+<!-- QUIZ TAKING -->
+<div class="page" id="pg-quiz">
+  <div class="quiz-hdr">
+    <div class="quiz-hdr-title" id="qhdr-title">quiz.run()</div>
+    <div class="timer" id="timer">⏱ --:--</div>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+  <div id="q-container"></div>
+  <div class="quiz-footer">
+    <div class="q-dots" id="q-dots"></div>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      <button class="btn btn-muted btn-sm" id="btn-prev" onclick="prevQ()" style="display:none">← prev</button>
+      <button class="btn btn-green btn-sm" id="btn-next" onclick="nextQ()">next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="page" id="pg-results">
+  <div class="results-top">
+    <div class="score-display">
+      <div class="score-pct" id="res-pct">0%</div>
+      <div class="score-label">score</div>
+    </div>
+    <div class="grade-text" id="res-grade"></div>
+    <div class="grade-sub" id="res-sub"></div>
+  </div>
+  <div class="res-stats" id="res-stats"></div>
+  <div class="section-head"><h2>answer_review</h2>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-muted btn-sm" onclick="go('quizzes')">← back</button>
+      <button class="btn btn-outline btn-sm" onclick="go('lb')">rankings</button>
+    </div>
+  </div>
+  <div class="review-grid" id="rev-grid"></div>
+</div>
+
+<!-- LEADERBOARD -->
+<div class="page" id="pg-lb">
+  <div class="section-head"><h2>top_scores</h2></div>
+  <div class="lb-filter" id="lb-filter"></div>
+  <div class="lb-wrap" id="lb-wrap"></div>
+</div>
+
+<!-- ADMIN -->
+<div class="page" id="pg-admin">
+  <div class="section-head"><h2>admin_panel</h2></div>
+  <div class="admin-tabs">
+    <button class="a-tab active" onclick="atab('create')">create_quiz()</button>
+    <button class="a-tab" onclick="atab('addq')">add_question()</button>
+    <button class="a-tab" onclick="atab('manage')">manage()</button>
+  </div>
+  <!-- Create Quiz -->
+  <div class="a-panel active" id="ap-create">
+    <div class="form-box">
+      <h3>new Quiz</h3>
+      <label class="fl">title *</label>
+      <input class="fi" id="qi-title" placeholder="e.g. JavaScript Fundamentals">
+      <label class="fl">description</label>
+      <input class="fi" id="qi-desc" placeholder="What will students learn?">
+      <div class="frow">
+        <div>
+          <label class="fl">category</label>
+          <select class="fs" id="qi-cat">
+            <option>JavaScript</option><option>Python</option><option>Java</option>
+            <option>C / C++</option><option>Data Structures</option><option>Algorithms</option>
+            <option>Web Development</option><option>Databases / SQL</option>
+            <option>Operating Systems</option><option>Networking</option><option>General CS</option>
+          </select>
+        </div>
+        <div>
+          <label class="fl">difficulty</label>
+          <select class="fs" id="qi-diff"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
+        </div>
+      </div>
+      <div class="frow">
+        <div>
+          <label class="fl">time limit (minutes, 0 = none)</label>
+          <input class="fi" id="qi-time" type="number" value="10" min="0" max="60">
+        </div>
+        <div>
+          <label class="fl">passing score (%)</label>
+          <input class="fi" id="qi-pass" type="number" value="60" min="0" max="100">
+        </div>
+      </div>
+      <button class="btn btn-green btn-sm" onclick="createQuiz()">create_quiz() →</button>
+    </div>
+  </div>
+  <!-- Add Question -->
+  <div class="a-panel" id="ap-addq">
+    <div class="form-box">
+      <h3>new Question</h3>
+      <label class="fl">select quiz *</label>
+      <select class="fs" id="aq-quiz"></select>
+      <label class="fl">question text *</label>
+      <input class="fi" id="aq-text" placeholder="e.g. What does `===` do in JavaScript?">
+      <label class="fl">code snippet (optional)</label>
+      <input class="fi" id="aq-code" placeholder="e.g. const x = 1 + '1'; // paste code here">
+      <label class="fl">answer options (select the correct one)</label>
+      <div class="opt-builder">
+        <div class="opt-row"><input type="radio" name="cr" value="0" checked><span class="opt-row-label">A</span><input class="fi" id="op0" placeholder="Option A"></div>
+        <div class="opt-row"><input type="radio" name="cr" value="1"><span class="opt-row-label">B</span><input class="fi" id="op1" placeholder="Option B"></div>
+        <div class="opt-row"><input type="radio" name="cr" value="2"><span class="opt-row-label">C</span><input class="fi" id="op2" placeholder="Option C"></div>
+        <div class="opt-row"><input type="radio" name="cr" value="3"><span class="opt-row-label">D</span><input class="fi" id="op3" placeholder="Option D"></div>
+      </div>
+      <label class="fl">points</label>
+      <input class="fi" id="aq-pts" type="number" value="10" min="1" max="100" style="max-width:120px">
+      <br>
+      <button class="btn btn-green btn-sm" onclick="addQ()">push_question() →</button>
+    </div>
+    <div>
+      <div class="section-head" style="padding:16px 0 12px"><h2>question_list</h2></div>
+      <div id="aq-list"></div>
+    </div>
+  </div>
+  <!-- Manage -->
+  <div class="a-panel" id="ap-manage">
+    <div id="mg-list"></div>
+  </div>
+</div>
+
+<!-- Start Modal -->
+<div class="overlay" id="start-overlay">
+  <div class="modal">
+    <div class="modal-title" id="m-title">quiz.init()</div>
+    <div class="modal-sub" id="m-desc">Ready to begin?</div>
+    <div class="modal-tags" id="m-tags"></div>
+    <label class="fl">your name / handle *</label>
+    <input class="fi" id="m-name" placeholder="e.g. dev_student_01" style="margin-bottom:16px">
+    <div class="modal-actions">
+      <button class="btn btn-green btn-sm" onclick="startQuiz()">▶ start()</button>
+      <button class="btn btn-muted btn-sm" onclick="closeModal()">cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+// =========== DATA ===========
+let DB = JSON.parse(localStorage.getItem('bq_db') || 'null');
+if (!DB) {
+  DB = {
+    quizzes: [
+      {
+        id:'js1', title:'JavaScript Essentials', description:'Core JS concepts every dev must know.',
+        category:'JavaScript', difficulty:'Beginner', timeLimit:8, passPct:60,
+        questions:[
+          {id:'j1', text:'Which keyword declares a block-scoped variable?', code:'', options:['var','let','const','function'], correct:1, pts:10},
+          {id:'j2', text:'What is the output of the following code?', code:'console.log(typeof null);', options:['"null"','"object"','"undefined"','"boolean"'], correct:1, pts:10},
+          {id:'j3', text:'Which method adds an element to the end of an array?', code:'', options:['push()','pop()','shift()','unshift()'], correct:0, pts:10},
+          {id:'j4', text:'What does `===` check in JavaScript?', code:'', options:['Value only','Type only','Value and type','Reference equality'], correct:2, pts:10},
+          {id:'j5', text:'What will this output?', code:'console.log(1 + "2");', options:['3','"12"','NaN','Error'], correct:1, pts:10},
+          {id:'j6', text:'Which of these is NOT a JavaScript data type?', code:'', options:['Symbol','BigInt','Float','Boolean'], correct:2, pts:10},
+        ]
+      },
+      {
+        id:'py1', title:'Python Power Round', description:'From basics to OOP — test your Python chops.',
+        category:'Python', difficulty:'Intermediate', timeLimit:10, passPct:65,
+        questions:[
+          {id:'p1', text:'What is the output of this code?', code:'print(type([]))  ', options:["<class 'list'>",'<list>','list','Array'], correct:0, pts:10},
+          {id:'p2', text:'Which of the following creates a tuple in Python?', code:'', options:['[1,2,3]','{1,2,3}','(1,2,3)','<1,2,3>'], correct:2, pts:10},
+          {id:'p3', text:'What does `//` do in Python?', code:'print(7 // 2)', options:['Regular division','Integer (floor) division','Comment','Exponentiation'], correct:1, pts:10},
+          {id:'p4', text:'Which built-in function returns the length of an object?', code:'', options:['size()','count()','length()','len()'], correct:3, pts:10},
+          {id:'p5', text:'What is the output?', code:'x = [1,2,3]\nprint(x[-1])', options:['1','3','-1','Error'], correct:1, pts:10},
+          {id:'p6', text:'Which keyword is used for a generator function?', code:'', options:['return','async','yield','produce'], correct:2, pts:10},
+        ]
+      },
+      {
+        id:'ds1', title:'Data Structures Deep Dive', description:'Arrays, linked lists, trees, and more.',
+        category:'Data Structures', difficulty:'Advanced', timeLimit:12, passPct:70,
+        questions:[
+          {id:'d1', text:'What is the time complexity of searching in a balanced BST?', code:'', options:['O(1)','O(log n)','O(n)','O(n²)'], correct:1, pts:15},
+          {id:'d2', text:'Which data structure uses LIFO ordering?', code:'', options:['Queue','Stack','Deque','Priority Queue'], correct:1, pts:10},
+          {id:'d3', text:'What is the worst-case time complexity of QuickSort?', code:'', options:['O(n log n)','O(n)','O(n²)','O(log n)'], correct:2, pts:15},
+          {id:'d4', text:'Which traversal visits nodes: Left → Root → Right?', code:'', options:['Pre-order','In-order','Post-order','Level-order'], correct:1, pts:10},
+          {id:'d5', text:'What is the space complexity of a recursive Fibonacci without memoization?', code:'', options:['O(1)','O(n)','O(log n)','O(2ⁿ)'], correct:1, pts:15},
+          {id:'d6', text:'A hash table has O(1) average case for lookup. What causes O(n) worst case?', code:'', options:['Large tables','Hash collisions','Sorted keys','Empty buckets'], correct:1, pts:10},
+        ]
+      }
+    ],
+    scores: [
+      {name:'root@dev', quizId:'js1', quizTitle:'JavaScript Essentials', pct:100, score:60, total:60, time:'3:45', ts:Date.now()-86400000},
+      {name:'byte_ninja', quizId:'py1', quizTitle:'Python Power Round', pct:83, score:50, total:60, time:'6:22', ts:Date.now()-3600000},
+      {name:'algo_ace', quizId:'ds1', quizTitle:'Data Structures Deep Dive', pct:78, score:58, total:75, time:'9:10', ts:Date.now()-7200000},
+      {name:'js_hero', quizId:'js1', quizTitle:'JavaScript Essentials', pct:67, score:40, total:60, time:'5:30', ts:Date.now()-172800000},
+      {name:'py_student', quizId:'py1', quizTitle:'Python Power Round', pct:50, score:30, total:60, time:'8:55', ts:Date.now()-3600000*6},
+    ]
+  };
+  saveDB();
+}
+function saveDB() { localStorage.setItem('bq_db', JSON.stringify(DB)); }
+
+// =========== STATE ===========
+let curPage = 'home', activeQuiz = null, curQ = 0, answers = {}, timerInt = null, secLeft = 0, startTs = 0, pendingId = null, lbFilter = 'all', adminTab_ = 'create', playerName = '';
+
+// =========== NAV ===========
+function go(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const pageMap = {home:'pg-home', quizzes:'pg-quizzes', quiz:'pg-quiz', results:'pg-results', lb:'pg-lb', admin:'pg-admin'};
+  const navMap = {home:0, quizzes:1, lb:2, admin:3};
+  document.getElementById(pageMap[page]).classList.add('active');
+  if (navMap[page] !== undefined) document.querySelectorAll('.nav-btn')[navMap[page]].classList.add('active');
+  curPage = page;
+  if (page==='home') renderHome();
+  if (page==='quizzes') renderQuizList();
+  if (page==='lb') renderLB();
+  if (page==='admin') renderAdmin();
+}
+
+// =========== HOME ===========
+function renderHome() {
+  const totalQ = DB.quizzes.reduce((a,q)=>a+q.questions.length,0);
+  document.getElementById('home-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-val">${DB.quizzes.length}</div><div class="stat-key">// quizzes loaded</div></div>
+    <div class="stat-box"><div class="stat-val">${totalQ}</div><div class="stat-key">// total questions</div></div>
+    <div class="stat-box"><div class="stat-val">${DB.scores.length}</div><div class="stat-key">// attempts logged</div></div>
+  `;
+}
+
+// =========== QUIZ LIST ===========
+const diffTag = {Beginner:'tag-green', Intermediate:'tag-amber', Advanced:'tag-red'};
+const catIcon = {JavaScript:'⚡',Python:'🐍','Java':'☕','C / C++':'⚙️','Data Structures':'🌲',Algorithms:'🔗','Web Development':'🌐','Databases / SQL':'🗄️','Operating Systems':'💻','Networking':'📡','General CS':'🎓'};
+
+function renderQuizList() {
+  const c = document.getElementById('quiz-grid');
+  if (!DB.quizzes.length) { c.innerHTML = '<div class="empty-state">// no quizzes found. create one in admin/</div>'; return; }
+  c.innerHTML = DB.quizzes.map(q => `
+    <div class="quiz-card">
+      <div class="qc-top">
+        <div>
+          <div class="qc-name">${catIcon[q.category]||'📋'} ${q.title}</div>
+          <div class="qc-desc">${q.description||''}</div>
+        </div>
+      </div>
+      <div class="qc-meta">
+        <span class="tag tag-blue">${q.category}</span>
+        <span class="tag ${diffTag[q.difficulty]||'tag-green'}">${q.difficulty}</span>
+        <span class="tag tag-green">${q.questions.length} questions</span>
+        ${q.timeLimit>0?`<span class="tag tag-amber">⏱ ${q.timeLimit}min</span>`:'<span class="tag tag-green">no timer</span>'}
+        <span class="tag tag-blue">pass: ${q.passPct}%</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-green btn-sm" onclick="openModal('${q.id}')">▶ run()</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// =========== MODAL ===========
+function openModal(id) {
+  pendingId = id;
+  const q = DB.quizzes.find(x=>x.id===id);
+  document.getElementById('m-title').textContent = q.title;
+  document.getElementById('m-desc').textContent = q.description || 'Ready to test your knowledge?';
+  document.getElementById('m-tags').innerHTML = `
+    <span class="tag tag-green">${q.questions.length} MCQ</span>
+    ${q.timeLimit>0?`<span class="tag tag-amber">⏱ ${q.timeLimit} min</span>`:'<span class="tag tag-green">no timer</span>'}
+    <span class="tag ${diffTag[q.difficulty]||'tag-green'}">${q.difficulty}</span>
+    <span class="tag tag-blue">pass ≥ ${q.passPct}%</span>
+  `;
+  document.getElementById('m-name').value = '';
+  document.getElementById('start-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('m-name').focus(),100);
+}
+function closeModal() { document.getElementById('start-overlay').classList.remove('open'); }
+
+function startQuiz() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) { toast('enter your handle!','err'); return; }
+  const quiz = DB.quizzes.find(x=>x.id===pendingId);
+  if (!quiz||!quiz.questions.length) { toast('no questions in this quiz!','err'); return; }
+  playerName = name; activeQuiz = quiz; curQ = 0; answers = {}; startTs = Date.now();
+  if (timerInt) clearInterval(timerInt);
+  closeModal();
+  if (quiz.timeLimit>0) {
+    secLeft = quiz.timeLimit*60;
+    timerInt = setInterval(tickTimer, 1000);
+  } else { secLeft = 0; document.getElementById('timer').style.display='none'; }
+  go('quiz');
+  renderQ();
+}
+
+function tickTimer() {
+  secLeft--;
+  const m = String(Math.floor(secLeft/60)).padStart(2,'0');
+  const s = String(secLeft%60).padStart(2,'0');
+  const el = document.getElementById('timer');
+  el.textContent = `⏱ ${m}:${s}`;
+  el.className = 'timer';
+  if (secLeft<=30) el.classList.add('danger');
+  else if (secLeft<=60) el.classList.add('warn');
+  if (secLeft<=0) { clearInterval(timerInt); timerInt=null; finishQuiz(); }
+}
+
+// =========== QUESTION RENDER ===========
+function renderQ() {
+  const q = activeQuiz.questions[curQ], total = activeQuiz.questions.length;
+  document.getElementById('qhdr-title').innerHTML = `<span>${activeQuiz.title}</span> // q${curQ+1}`;
+  document.getElementById('prog-fill').style.width = ((curQ+1)/total*100)+'%';
+  document.getElementById('timer').style.display = activeQuiz.timeLimit>0?'block':'none';
+  document.getElementById('btn-prev').style.display = curQ>0?'inline-flex':'none';
+  document.getElementById('btn-next').textContent = curQ===total-1?'finish ✓':'next →';
+
+  const dots = document.getElementById('q-dots');
+  dots.innerHTML = activeQuiz.questions.map((_, i) => `
+    <div class="q-dot ${i===curQ?'current':answers[activeQuiz.questions[i].id]!==undefined?'answered':''}" onclick="jumpQ(${i})"></div>
+  `).join('');
+
+  const sel = answers[q.id];
+  const codeHtml = q.code ? `<div class="code-block">${escCode(q.code)}</div>` : '';
+
+  document.getElementById('q-container').innerHTML = `
+    <div class="question-box">
+      <div class="q-meta">
+        <span>Q${curQ+1} / ${total}</span>
+        <span><span>${q.pts}</span> pts</span>
+        <span>MCQ</span>
+      </div>
+      <div class="q-text">${q.text}${codeHtml}</div>
+      <div class="options-list">
+        ${q.options.map((o,i)=>`
+          <div class="opt ${sel===i?'selected':''}" onclick="pickOpt('${q.id}',${i})">
+            <div class="opt-key">${'ABCD'[i]}</div>${o}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function escCode(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>').replace(/  /g,'&nbsp;&nbsp;');
+}
+
+function pickOpt(qid, idx) { answers[qid]=idx; renderQ(); }
+function jumpQ(i) { curQ=i; renderQ(); }
+function prevQ() { if(curQ>0){curQ--;renderQ();} }
+function nextQ() { if(curQ<activeQuiz.questions.length-1){curQ++;renderQ();}else finishQuiz(); }
+
+// =========== FINISH ===========
+function finishQuiz() {
+  if(timerInt){clearInterval(timerInt);timerInt=null;}
+  const elapsed = Math.round((Date.now()-startTs)/1000);
+  const tm = `${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')}`;
+
+  let score=0, total=0;
+  const review=[];
+
+  activeQuiz.questions.forEach(q=>{
+    total += q.pts;
+    const ans = answers[q.id];
+    const correct = ans===q.correct;
+    if(correct) score += q.pts;
+    review.push({
+      text:q.text, code:q.code,
+      userAns: ans!==undefined?q.options[ans]:null,
+      correctAns: q.options[q.correct],
+      correct, skipped: ans===undefined
+    });
+  });
+
+  const pct = Math.round(score/total*100);
+  const passed = pct >= activeQuiz.passPct;
+  const grades = [[90,'// outstanding.run()'],[75,'// excellent.execute()'],[60,'// good.compile()'],[0,'// keep_debugging()']];
+  const grade = grades.find(([min])=>pct>=min)[1];
+  const sub = passed ? `✓ passed — exceeded ${activeQuiz.passPct}% threshold` : `✗ failed — need ${activeQuiz.passPct}% to pass`;
+
+  DB.scores.push({name:playerName, quizId:activeQuiz.id, quizTitle:activeQuiz.title, pct, score, total, time:tm, ts:Date.now()});
+  saveDB();
+
+  document.getElementById('res-pct').textContent = pct+'%';
+  document.getElementById('res-grade').textContent = grade;
+  document.getElementById('res-sub').style.color = passed?'var(--green)':'var(--red)';
+  document.getElementById('res-sub').textContent = sub;
+  document.getElementById('res-stats').innerHTML = `
+    <div class="res-stat"><div class="res-stat-val" style="color:${passed?'var(--green)':'var(--red)'}">${score}</div><div class="res-stat-key">// points</div></div>
+    <div class="res-stat"><div class="res-stat-val">${review.filter(r=>r.correct).length}/${activeQuiz.questions.length}</div><div class="res-stat-key">// correct</div></div>
+    <div class="res-stat"><div class="res-stat-val" style="color:var(--blue)">${tm}</div><div class="res-stat-key">// time</div></div>
+  `;
+  document.getElementById('rev-grid').innerHTML = review.map((r,i)=>`
+    <div class="rev-item">
+      <div class="rev-icon ${r.skipped?'s':r.correct?'c':'w'}">${r.skipped?'~~':r.correct?'OK':'ER'}</div>
+      <div>
+        <div class="rev-q">Q${i+1}. ${r.text}${r.code?`<div class="code-block" style="margin-top:6px">${escCode(r.code)}</div>`:''}</div>
+        <div class="rev-ans">
+          ${r.skipped
+            ? `<span class="ans-wrong">// skipped</span> → <span class="ans-correct">correct: ${r.correctAns}</span>`
+            : r.correct
+              ? `<span class="ans-correct">// ${r.userAns}</span>`
+              : `<span class="ans-wrong">// your answer: ${r.userAns}</span> → <span class="ans-correct">correct: ${r.correctAns}</span>`
+          }
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  go('results');
+}
+
+// =========== LEADERBOARD ===========
+function renderLB() {
+  const titles = ['all', ...new Set(DB.scores.map(s=>s.quizTitle))];
+  document.getElementById('lb-filter').innerHTML = titles.map(t=>`
+    <button class="filt-btn ${(lbFilter==='all'&&t==='all')||lbFilter===t?'active':''}" onclick="setFilter('${t}')">${t==='all'?'// all':t}</button>
+  `).join('');
+  const filtered = lbFilter==='all'?DB.scores:DB.scores.filter(s=>s.quizTitle===lbFilter);
+  const sorted = [...filtered].sort((a,b)=>b.pct-a.pct||a.time.localeCompare(b.time));
+  const medals=['🥇','🥈','🥉'], cls=['gold','silver','bronze'], rcls=['r1','r2','r3'];
+  document.getElementById('lb-wrap').innerHTML = sorted.length
+    ? sorted.map((e,i)=>`
+      <div class="lb-row ${i<3?cls[i]:''}">
+        <div class="lb-rank ${i<3?rcls[i]:''}">${i<3?medals[i]:'#'+(i+1)}</div>
+        <div class="lb-avatar">${e.name[0].toUpperCase()}</div>
+        <div class="lb-info">
+          <div class="lb-name">${e.name}</div>
+          <div class="lb-quiz">${e.quizTitle}</div>
+        </div>
+        <div class="lb-right">
+          <div class="lb-score">${e.pct}%</div>
+          <div class="lb-time">⏱ ${e.time}</div>
+        </div>
+      </div>
+    `).join('')
+    : '<div class="empty-state">// no entries yet. be the first.</div>';
+}
+function setFilter(f) { lbFilter=f; renderLB(); }
+
+// =========== ADMIN ===========
+function renderAdmin() { atab(adminTab_); }
+function atab(tab) {
+  adminTab_ = tab;
+  document.querySelectorAll('.a-tab').forEach((t,i)=>t.classList.toggle('active',['create','addq','manage'][i]===tab));
+  document.querySelectorAll('.a-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('ap-'+tab).classList.add('active');
+  if(tab==='addq') refreshAQList();
+  if(tab==='manage') renderManage();
+}
+
+function createQuiz() {
+  const title = document.getElementById('qi-title').value.trim();
+  if(!title){toast('title required','err');return;}
+  const q = {
+    id:'q'+Date.now(), title,
+    description: document.getElementById('qi-desc').value.trim(),
+    category: document.getElementById('qi-cat').value,
+    difficulty: document.getElementById('qi-diff').value,
+    timeLimit: parseInt(document.getElementById('qi-time').value)||0,
+    passPct: parseInt(document.getElementById('qi-pass').value)||60,
+    questions:[]
+  };
+  DB.quizzes.push(q); saveDB();
+  toast(`quiz "${title}" created!`,'ok');
+  document.getElementById('qi-title').value='';
+  document.getElementById('qi-desc').value='';
+  atab('addq');
+}
+
+function refreshAQList() {
+  const sel = document.getElementById('aq-quiz');
+  if(!sel) return;
+  sel.innerHTML = DB.quizzes.length
+    ? DB.quizzes.map(q=>`<option value="${q.id}">${q.title}</option>`).join('')
+    : '<option value="">no quizzes — create one first</option>';
+  sel.onchange = ()=>renderAQList(sel.value);
+  renderAQList(DB.quizzes[0]?.id);
+}
+
+function renderAQList(qid) {
+  const quiz = DB.quizzes.find(q=>q.id===qid);
+  const c = document.getElementById('aq-list');
+  if(!quiz||!quiz.questions.length){c.innerHTML='<div class="empty-state">// no questions yet</div>';return;}
+  c.innerHTML = `<div class="q-items">${quiz.questions.map((q,i)=>`
+    <div class="q-item">
+      <span class="q-item-n">${(i+1).toString().padStart(2,'0')}</span>
+      <div class="q-item-text">${q.text}</div>
+      <span class="q-item-type">${q.pts}pts</span>
+      <button class="btn btn-danger btn-sm" onclick="delQ('${quiz.id}','${q.id}')">rm</button>
+    </div>
+  `).join('')}</div>`;
+}
+
+function addQ() {
+  const qid = document.getElementById('aq-quiz').value;
+  if(!qid){toast('select a quiz','err');return;}
+  const text = document.getElementById('aq-text').value.trim();
+  if(!text){toast('enter question text','err');return;}
+  const opts = [0,1,2,3].map(i=>document.getElementById('op'+i).value.trim());
+  if(opts.some(o=>!o)){toast('fill all 4 options','err');return;}
+  const correct = parseInt(document.querySelector('input[name="cr"]:checked').value);
+  const q = {
+    id:'q'+Date.now(), text, code: document.getElementById('aq-code').value.trim(),
+    options:opts, correct, pts: parseInt(document.getElementById('aq-pts').value)||10
+  };
+  DB.quizzes.find(x=>x.id===qid).questions.push(q); saveDB();
+  toast('question added!','ok');
+  ['aq-text','aq-code',...[0,1,2,3].map(i=>'op'+i)].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.querySelector('input[name="cr"]').checked=true;
+  renderAQList(qid);
+}
+
+function delQ(quizId, qId) {
+  const quiz = DB.quizzes.find(q=>q.id===quizId);
+  quiz.questions = quiz.questions.filter(q=>q.id!==qId); saveDB();
+  toast('question removed','info');
+  renderAQList(quizId);
+}
+
+function renderManage() {
+  const c = document.getElementById('mg-list');
+  if(!DB.quizzes.length){c.innerHTML='<div class="empty-state">// no quizzes</div>';return;}
+  c.innerHTML = DB.quizzes.map(q=>`
+    <div class="quiz-card" style="margin-bottom:10px">
+      <div class="qc-name">${q.title}</div>
+      <div class="qc-desc" style="margin:4px 0 12px">${q.description||'—'}</div>
+      <div class="qc-meta">
+        <span class="tag tag-blue">${q.category}</span>
+        <span class="tag tag-green">${q.questions.length} questions</span>
+        <span class="tag ${diffTag[q.difficulty]}">${q.difficulty}</span>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn btn-danger btn-sm" onclick="delQuiz('${q.id}')">rm -rf quiz</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function delQuiz(id) {
+  if(!confirm('Delete this quiz and all its questions?'))return;
+  DB.quizzes = DB.quizzes.filter(q=>q.id!==id); saveDB();
+  toast('quiz deleted','info'); renderManage();
+}
+
+// =========== TOAST ===========
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${{ok:'✓',err:'✗',info:'i'}[type]}</span> ${msg}`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(), 3200);
+}
+
+// =========== INIT ===========
+renderHome();
+</script>
+</body>
+</html>
